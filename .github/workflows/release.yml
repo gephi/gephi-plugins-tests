@@ -1,4 +1,4 @@
-name: release-pom
+name: release
 
 on:
   push:
@@ -7,9 +7,6 @@ on:
 jobs:
   build_and_test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: modules
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK 11
