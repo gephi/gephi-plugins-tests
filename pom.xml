@@ -115,11 +115,6 @@
                     <version>0.11.0</version>
                     <extensions>true</extensions>
                 </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.6.0</version>
-                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -131,8 +126,8 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration combine.self="override"/>
                 <executions>
-                    <!-- The contract tests (e.g. LayoutIT) are the actual published content:
-                         package them as a proper test-jar for consumers to depend on -->
+                    <!-- The contract tests (e.g. LayoutContractTest) are the actual published
+                         content: package them as a proper test-jar for consumers to depend on -->
                     <execution>
                         <id>default-test-jar</id>
                         <phase>package</phase>
@@ -141,22 +136,6 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
-
-            <!-- Run our own "*IT" contract tests against the layout-plugin test dependency,
-                 so a regression is caught here before it ever reaches a consuming plugin -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <includes>
-                        <include>**/Test*.java</include>
-                        <include>**/*Test.java</include>
-                        <include>**/*Tests.java</include>
-                        <include>**/*TestCase.java</include>
-                        <include>**/*IT.java</include>
-                    </includes>
-                </configuration>
             </plugin>
 
             <!-- Maven central -->

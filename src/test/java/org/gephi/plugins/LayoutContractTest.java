@@ -24,12 +24,12 @@ import org.junit.runners.Parameterized;
 import org.openide.util.Lookup;
 
 @RunWith(Parameterized.class)
-public class LayoutIT {
+public class LayoutContractTest {
     private final LayoutBuilder layoutBuilder;
     private Layout layout;
     private GraphModel graphModel;
 
-    public LayoutIT(LayoutBuilder layout) {
+    public LayoutContractTest(LayoutBuilder layout) {
         this.layoutBuilder = layout;
     }
 
