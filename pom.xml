@@ -7,14 +7,15 @@
     <parent>
         <groupId>org.gephi</groupId>
         <artifactId>gephi-plugin-parent</artifactId>
-        <version>0.9.6</version>
+        <version>0.11.3</version>
     </parent>
 
     <artifactId>gephi-plugins-tests</artifactId>
-    <version>0.9.6-SNAPSHOT</version>
+    <version>0.11.3-SNAPSHOT</version>
 
     <name>gephi-plugins-tests</name>
     <description>Integration tests library to run against Gephi Plugins</description>
+    <url>https://github.com/gephi/gephi-plugins-tests</url>
 
     <!-- SCM -->
     <scm>
@@ -40,25 +41,6 @@
             <email>mathieu.bastian@gephi.org</email>
         </developer>
     </developers>
-
-    <!-- Properties -->
-    <properties>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
-    <!-- Repositories -->
-    <repositories>
-        <repository>
-            <id>oss-sonatype</id>
-            <name>oss-sonatype</name>
-            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
 
     <!-- Dependencies -->
     <dependencies>
@@ -111,11 +93,57 @@
 
     <build>
         <plugins>
-            <!-- Override from parent pom -->
+            <!-- Override from parent pom: this is a plain library jar, not an NBM module,
+                 so there is no generated NetBeans manifest to point the jar plugin at -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration combine.self="override"/>
+            </plugin>
+            <!-- Central requires sources and javadoc jars for every published artifact -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.4.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.12.0</version>
+                <configuration>
+                    <doclint>none</doclint>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.11.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <autoPublish>true</autoPublish>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>3.2.8</version>
             </plugin>
         </plugins>
     </build>
@@ -130,7 +158,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.6</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>
@@ -145,19 +172,6 @@
                                 <arg>--pinentry-mode</arg>
                                 <arg>loopback</arg>
                             </gpgArguments>
-                        </configuration>
-                    </plugin>
-
-                    <!-- Nexus staging, https://oss.sonatype.org/ -->
-                    <plugin>
-                        <groupId>org.sonatype.plugins</groupId>
-                        <artifactId>nexus-staging-maven-plugin</artifactId>
-                        <version>1.6.8</version>
-                        <extensions>true</extensions>
-                        <configuration>
-                            <serverId>ossrh</serverId>
-                            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
                         </configuration>
                     </plugin>
                 </plugins>

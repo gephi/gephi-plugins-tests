@@ -14,7 +14,7 @@ import org.gephi.layout.spi.LayoutBuilder;
 import org.gephi.layout.spi.LayoutProperty;
 import org.gephi.layout.spi.LayoutUI;
 import org.gephi.project.io.utils.GephiFormat;
-import org.gephi.workspace.impl.WorkspaceImpl;
+import org.gephi.project.impl.WorkspaceImpl;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
