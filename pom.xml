@@ -115,6 +115,11 @@
                     <version>0.11.0</version>
                     <extensions>true</extensions>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.6.0</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -125,6 +130,33 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration combine.self="override"/>
+                <executions>
+                    <!-- The contract tests (e.g. LayoutIT) are the actual published content:
+                         package them as a proper test-jar for consumers to depend on -->
+                    <execution>
+                        <id>default-test-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Run our own "*IT" contract tests against the layout-plugin test dependency,
+                 so a regression is caught here before it ever reaches a consuming plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>**/Test*.java</include>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*TestCase.java</include>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
             </plugin>
 
             <!-- Maven central -->
@@ -151,11 +183,17 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
                         <executions>
+                            <!-- All the actual content lives in src/test/java, so package
+                                 that (via test-jar-no-fork) but relabel it as the "sources"
+                                 classifier Central expects for the main artifact -->
                             <execution>
                                 <id>attach-sources</id>
                                 <goals>
-                                    <goal>jar-no-fork</goal>
+                                    <goal>test-jar-no-fork</goal>
                                 </goals>
+                                <configuration>
+                                    <classifier>sources</classifier>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>
@@ -181,12 +219,15 @@
                         </configuration>
                     </plugin>
 
-                    <!-- Javadoc jar -->
+                    <!-- Javadoc jar: all the actual content lives in src/test/java (this
+                         project's "main" is deliberately empty), so point javadoc there;
+                         Central requires a "javadoc"-classified artifact regardless -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
                         <configuration>
                             <doclint>none</doclint>
+                            <sourcepath>${project.build.testSourceDirectory}</sourcepath>
                         </configuration>
                         <executions>
                             <execution>
