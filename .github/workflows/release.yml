@@ -20,7 +20,7 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
       - name: Build and validate project
-        run: mvn -B deploy -P release --file pom.xml
+        run: mvn -B deploy -P release -Dmaven.repository.credentialScope=id --file pom.xml
         env:
           OSSRH_USER: ${{ secrets.OSSRH_TOKEN_USER }}
           OSSRH_PASS: ${{ secrets.OSSRH_TOKEN_PASSWD }}
