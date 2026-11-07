@@ -14,6 +14,15 @@ We cover a number of plugin types and expectations and plan to add more overtime
   * [x] Speed and quality appraisal are within the expected ranges
   * [x] Properties can be read and written
   * [x] Properties can be serialized via the persistence providers
+* [x] Statistics
+  * [x] Builder returns a new instance of the declared class, and the controller can find it
+  * [x] Statistics has a UI with a name and category, whose settings panel and value can be read
+  * [x] Executes on edge cases (empty, single node, self-loops, undirected, mixed, multigraph, disconnected, filtered view)
+  * [x] Doesn't modify the graph structure, leave the graph locked or write NaN/infinite values
+  * [x] Can be executed again and replaces existing columns of another type
+  * [x] Cancelling at any moment doesn't throw or leave the graph locked
+  * [x] Report is not empty and can be saved in a project
+  * [x] Dynamic statistics run through the controller
 
 ## Development
 
