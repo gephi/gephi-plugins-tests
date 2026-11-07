@@ -17,17 +17,21 @@ We cover a number of plugin types and expectations and plan to add more overtime
   * [x] Properties accept their own value written back, also between iterations of a run
   * [x] Builder returns a new instance each time and the layout points back to it
   * [x] Runs the init, go, end lifecycle on edge cases (empty, single node, self-loops, undirected, mixed, multigraph, disconnected, coincident and zero-size nodes)
-  * [x] Doesn't add or remove nodes, leave the graph locked or write NaN/infinite positions
+  * [x] Doesn't leave the graph locked or write NaN/infinite positions
+  * [x] Doesn't add or remove nodes or edges (warning)
   * [x] Can be stopped after any iteration, run again and reset
   * [x] Cancelling at any moment doesn't throw or leave the graph locked
 * [x] Statistics
   * [x] Builder returns a new instance of the declared class, and the controller can find it
   * [x] Statistics has a UI with a name and category, whose settings panel and value can be read
   * [x] Executes on edge cases (empty, single node, self-loops, undirected, mixed, multigraph, disconnected, filtered view)
-  * [x] Doesn't modify the graph structure, leave the graph locked or write NaN/infinite values
-  * [x] Can be executed again and replaces existing columns of another type
+  * [x] Doesn't leave the graph locked or write NaN/infinite values
+  * [x] Doesn't add or remove nodes or edges (warning)
+  * [x] Can be executed again
+  * [x] Replaces existing columns of another type (warning)
   * [x] Cancelling at any moment doesn't throw or leave the graph locked
-  * [x] Report is not empty and can be saved in a project
+  * [x] Report is not empty and can be read back from a saved project
+  * [x] Report is unchanged by saving and loading (warning)
   * [x] Dynamic statistics run through the controller
 
 ## Development
@@ -39,6 +43,12 @@ Developing in the repository requires JDK 17 or later and [Maven](http://maven.a
 ### Create a new contract test
 
 Tests live in `src/test/java` and are packaged as a test-jar, so consuming plugins can depend on this project (with `<type>test-jar</type>`) and get these tests run automatically against whatever they implement, via Surefire's `dependenciesToScan`. You can extend an existing class with new tests. If you create a new class, make sure its name ends with `Test` so Surefire picks it up both here and in consumers.
+
+### Warnings
+
+A test annotated with `@Advisory` (the test class needs the `AdvisoryRule`) doesn't fail when its check does, it reports a warning instead. Use it for things that don't break the plugin but that users or reviewers should know about, for instance a layout that adds nodes on purpose. The warning is printed, and appended to the file set in the `gephi.plugins.tests.warnings` system property, as one `<test name><TAB><message>` line each. gephi-plugins' CI harness sets it to turn them into GitHub annotations and a job summary.
+
+Currently advisory: the graph structure being changed, existing columns of another type, and reports that change when saved and loaded.
 
 Add new dependencies in the `pom.xml` to support testing new types of plugins.
 
