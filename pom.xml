@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>gephi-plugins-tests</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.1.0</version>
 
     <name>gephi-plugins-tests</name>
     <description>Integration tests library to run against Gephi Plugins</description>
