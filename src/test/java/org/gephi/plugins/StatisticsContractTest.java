@@ -9,10 +9,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamWriter;
@@ -142,7 +140,7 @@ public class StatisticsContractTest {
     @Test
     public void testStatisticsUIValueAfterExecution() {
         for (StatisticsUI ui : uis()) {
-            Statistics statistics = executeOn(randomGraph());
+            Statistics statistics = executeOn(TestGraphs.randomGraph());
             ui.setup(statistics);
             try {
                 // The value is optional (e.g. statistics that only write columns), but must be readable
@@ -162,7 +160,7 @@ public class StatisticsContractTest {
             Assume.assumeFalse(ui.getClass().getSimpleName() + " does not implement getValue(Statistics)",
                 method.isDefault());
 
-            Statistics first = executeOn(randomGraph());
+            Statistics first = executeOn(TestGraphs.randomGraph());
             Statistics second = executeOn(GraphGenerator.build().getGraphModel());
 
             ui.setup(first);
@@ -184,7 +182,7 @@ public class StatisticsContractTest {
     @Test
     public void testExecute() {
         Assume.assumeFalse(isDynamic());
-        for (Map.Entry<String, GraphModel> scenario : scenarios().entrySet()) {
+        for (Map.Entry<String, GraphModel> scenario : TestGraphs.scenarios().entrySet()) {
             String name = scenario.getKey();
             GraphModel graphModel = scenario.getValue();
             int nodes = graphModel.getGraph().getNodeCount();
@@ -207,7 +205,7 @@ public class StatisticsContractTest {
     @Test
     public void testExecuteReport() {
         Assume.assumeFalse(isDynamic());
-        Statistics statistics = executeOn(randomGraph());
+        Statistics statistics = executeOn(TestGraphs.randomGraph());
         String report = statistics.getReport();
         Assert.assertTrue("Report can't be null or empty after the statistics has been executed",
             report != null && !report.trim().isEmpty());
@@ -216,7 +214,7 @@ public class StatisticsContractTest {
     @Test
     public void testExecuteOnVisibleView() {
         Assume.assumeFalse(isDynamic());
-        GraphModel graphModel = randomGraph();
+        GraphModel graphModel = TestGraphs.randomGraph();
         Graph mainGraph = graphModel.getGraph();
         int nodes = mainGraph.getNodeCount();
         int edges = mainGraph.getEdgeCount();
@@ -247,7 +245,7 @@ public class StatisticsContractTest {
     @Test
     public void testExecuteTwice() {
         Assume.assumeFalse(isDynamic());
-        GraphModel graphModel = randomGraph();
+        GraphModel graphModel = TestGraphs.randomGraph();
         Map<String, Class<?>> columnsBefore = columns(graphModel);
 
         builder.getStatistics().execute(graphModel);
@@ -275,7 +273,7 @@ public class StatisticsContractTest {
         // Imported graphs commonly already have columns named like the results (e.g. 'degree'), typed as strings
         Map<String, Class<?>> created = new LinkedHashMap<>();
         {
-            GraphModel reference = randomGraph();
+            GraphModel reference = TestGraphs.randomGraph();
             Map<String, Class<?>> before = columns(reference);
             builder.getStatistics().execute(reference);
             columns(reference).forEach((id, type) -> {
@@ -286,7 +284,7 @@ public class StatisticsContractTest {
         }
         Assume.assumeFalse("Statistics doesn't create any column", created.isEmpty());
 
-        GraphModel graphModel = randomGraph();
+        GraphModel graphModel = TestGraphs.randomGraph();
         for (Map.Entry<String, Class<?>> entry : created.entrySet()) {
             String id = entry.getKey();
             String tableId = id.substring(0, id.indexOf(':'));
@@ -307,9 +305,9 @@ public class StatisticsContractTest {
     @Test
     public void testExecuteLeavesGraphUnlocked() {
         Assume.assumeFalse(isDynamic());
-        GraphModel graphModel = randomGraph();
+        GraphModel graphModel = TestGraphs.randomGraph();
         builder.getStatistics().execute(graphModel);
-        assertGraphUnlocked("random", graphModel);
+        TestGraphs.assertGraphUnlocked("Statistics", "random", graphModel);
     }
 
     // Cancellation
@@ -320,7 +318,7 @@ public class StatisticsContractTest {
         Assume.assumeTrue("Statistics is not cancellable", builder.getStatistics() instanceof LongTask);
 
         for (long delayMs : new long[] {-1, 0, 1, 5, 25}) {
-            GraphModel graphModel = largeRandomGraph();
+            GraphModel graphModel = TestGraphs.largeRandomGraph();
             int nodes = graphModel.getGraph().getNodeCount();
             int edges = graphModel.getGraph().getEdgeCount();
             Statistics statistics = builder.getStatistics();
@@ -403,7 +401,7 @@ public class StatisticsContractTest {
     @Test
     public void testReportSerialization() throws Exception {
         Assume.assumeFalse(isDynamic());
-        Statistics statistics = executeOn(randomGraph());
+        Statistics statistics = executeOn(TestGraphs.randomGraph());
 
         Workspace workspace = new WorkspaceImpl(null, 0);
         StatisticsModelImpl model = new StatisticsModelImpl(workspace);
@@ -448,19 +446,7 @@ public class StatisticsContractTest {
             graphModel.getGraph().getNodeCount());
         Assert.assertEquals("Statistics must not add or remove edges ('" + scenario + "' graph)", edges,
             graphModel.getGraph().getEdgeCount());
-        assertGraphUnlocked(scenario, graphModel);
-    }
-
-    private static void assertGraphUnlocked(String scenario, GraphModel graphModel) {
-        Graph graph = graphModel.getGraph();
-        try {
-            graph.writeLock();
-            graph.writeUnlock();
-        } catch (IllegalMonitorStateException e) {
-            graph.readUnlockAll();
-            throw new AssertionError("Statistics left a read lock on the graph, make sure every readLock() is " +
-                "released, including when the statistics is cancelled or fails ('" + scenario + "' graph)", e);
-        }
+        TestGraphs.assertGraphUnlocked("Statistics", scenario, graphModel);
     }
 
     private static void assertNoInvalidNumbers(String scenario, GraphModel graphModel,
@@ -504,78 +490,6 @@ public class StatisticsContractTest {
             columns.put("edge:" + column.getId(), column.getTypeClass());
         }
         return columns;
-    }
-
-    private static Map<String, GraphModel> scenarios() {
-        Map<String, GraphModel> scenarios = new LinkedHashMap<>();
-        scenarios.put("empty", GraphGenerator.build().getGraphModel());
-        scenarios.put("single node", build(model -> model.getGraph().addNode(model.factory().newNode("1"))));
-        scenarios.put("single node with self-loop", build(model -> {
-            Node n = model.factory().newNode("1");
-            model.getGraph().addNode(n);
-            model.getGraph().addEdge(model.factory().newEdge("1", n, n, 0, 1.0, true));
-        }));
-        scenarios.put("directed", GraphGenerator.build().generateTinyGraph().getGraphModel());
-        scenarios.put("undirected", GraphGenerator.build().generateTinyUndirectedGraph().getGraphModel());
-        scenarios.put("mixed", GraphGenerator.build().generateTinyMixedGraph().getGraphModel());
-        scenarios.put("multigraph", GraphGenerator.build().generateTinyMultiGraph().getGraphModel());
-        scenarios.put("disconnected", build(model -> {
-            Graph g = model.getGraph();
-            Node[] n = new Node[5];
-            for (int i = 0; i < n.length; i++) {
-                n[i] = model.factory().newNode(String.valueOf(i));
-                g.addNode(n[i]);
-            }
-            g.addEdge(model.factory().newEdge("0", n[0], n[1], 0, 1.0, false));
-            g.addEdge(model.factory().newEdge("1", n[1], n[2], 0, 1.0, false));
-            g.addEdge(model.factory().newEdge("2", n[0], n[2], 0, 1.0, false));
-            g.addEdge(model.factory().newEdge("3", n[3], n[3], 0, 1.0, false));
-            // n[4] is isolated
-        }));
-        scenarios.put("weighted with zero and negative weights", build(model -> {
-            Graph g = model.getGraph();
-            Node a = model.factory().newNode("a");
-            Node b = model.factory().newNode("b");
-            Node c = model.factory().newNode("c");
-            g.addNode(a);
-            g.addNode(b);
-            g.addNode(c);
-            g.addEdge(model.factory().newEdge("0", a, b, 0, 0.0, true));
-            g.addEdge(model.factory().newEdge("1", b, c, 0, 2.5, true));
-            g.addEdge(model.factory().newEdge("2", c, a, 0, -1.0, true));
-        }));
-        scenarios.put("random", randomGraph());
-        return scenarios;
-    }
-
-    private static GraphModel randomGraph() {
-        return GraphGenerator.build().generateSmallRandomGraph().addIntNodeColumn().getGraphModel();
-    }
-
-    private static GraphModel largeRandomGraph() {
-        return build(model -> {
-            Random random = new Random(42);
-            Graph g = model.getGraph();
-            int n = 1500;
-            Node[] nodes = new Node[n];
-            for (int i = 0; i < n; i++) {
-                nodes[i] = model.factory().newNode(String.valueOf(i));
-                g.addNode(nodes[i]);
-            }
-            for (int i = 0; i < 6000; i++) {
-                Node source = nodes[random.nextInt(n)];
-                Node target = nodes[random.nextInt(n)];
-                if (g.getEdge(source, target) == null) {
-                    g.addEdge(model.factory().newEdge(source, target, 0, 1.0, true));
-                }
-            }
-        });
-    }
-
-    private static GraphModel build(Consumer<GraphModel> populate) {
-        GraphModel model = GraphGenerator.build().getGraphModel();
-        populate.accept(model);
-        return model;
     }
 
     private static String write(StatisticsModelImpl model) throws Exception {

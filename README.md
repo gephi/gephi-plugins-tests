@@ -13,7 +13,13 @@ We cover a number of plugin types and expectations and plan to add more overtime
   * [x] Layout UI has a proper description
   * [x] Speed and quality appraisal are within the expected ranges
   * [x] Properties can be read and written
-  * [x] Properties can be serialized via the persistence providers
+  * [x] Properties can be serialized via the persistence providers, including non-default values
+  * [x] Properties accept their own value written back, also between iterations of a run
+  * [x] Builder returns a new instance each time and the layout points back to it
+  * [x] Runs the init, go, end lifecycle on edge cases (empty, single node, self-loops, undirected, mixed, multigraph, disconnected, coincident and zero-size nodes)
+  * [x] Doesn't add or remove nodes, leave the graph locked or write NaN/infinite positions
+  * [x] Can be stopped after any iteration, run again and reset
+  * [x] Cancelling at any moment doesn't throw or leave the graph locked
 * [x] Statistics
   * [x] Builder returns a new instance of the declared class, and the controller can find it
   * [x] Statistics has a UI with a name and category, whose settings panel and value can be read
