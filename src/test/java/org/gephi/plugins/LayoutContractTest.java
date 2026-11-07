@@ -21,7 +21,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.openide.util.Lookup;
 
 @RunWith(Parameterized.class)
 public class LayoutContractTest {
@@ -35,7 +34,7 @@ public class LayoutContractTest {
 
     @Parameterized.Parameters(name = "{0}")
     public static Collection<? extends LayoutBuilder> configs() {
-        return Lookup.getDefault().lookupAll(LayoutBuilder.class);
+        return PluginLookup.lookupAll(LayoutBuilder.class);
     }
 
     @Before
