@@ -319,6 +319,8 @@ public class LayoutContractTest {
                     failure.set(t);
                 }
             }, "layout-contract-test");
+            // A layout ignoring cancel() would otherwise keep the test JVM alive after the failure
+            runner.setDaemon(true);
             runner.start();
             if (canceller != null) {
                 canceller.start();

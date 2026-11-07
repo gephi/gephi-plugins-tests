@@ -349,6 +349,8 @@ public class StatisticsContractTest {
                     failure.set(t);
                 }
             }, "statistics-contract-test");
+            // A statistics ignoring cancel() would otherwise keep the test JVM alive after the failure
+            runner.setDaemon(true);
             runner.start();
             canceller.start();
             runner.join(TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS));
