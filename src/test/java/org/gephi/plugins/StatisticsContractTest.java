@@ -41,6 +41,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -70,6 +71,9 @@ public class StatisticsContractTest {
         "gephi/gephi#3399",
         "testDynamicStatistics[org.gephi.statistics.plugin.dynamic.builder.DynamicClusteringCoefficientBuilder]",
         "gephi/gephi#3399");
+
+    @Rule
+    public final AdvisoryRule advisory = new AdvisoryRule();
 
     private final StatisticsBuilder builder;
 
@@ -190,8 +194,6 @@ public class StatisticsContractTest {
         for (Map.Entry<String, GraphModel> scenario : TestGraphs.scenarios().entrySet()) {
             String name = scenario.getKey();
             GraphModel graphModel = scenario.getValue();
-            int nodes = graphModel.getGraph().getNodeCount();
-            int edges = graphModel.getGraph().getEdgeCount();
             Map<String, Class<?>> columnsBefore = columns(graphModel);
 
             Statistics statistics = builder.getStatistics();
@@ -204,10 +206,37 @@ public class StatisticsContractTest {
                 throw new AssertionError("Statistics must handle the '" + name + "' graph: " + t, t);
             }
 
-            assertGraphUntouched(name, graphModel, nodes, edges);
+            TestGraphs.assertGraphUnlocked("Statistics", name, graphModel);
             Assert.assertNotNull("Report can't be null on the '" + name + "' graph", statistics.getReport());
             assertNoInvalidNumbers(name, graphModel, columnsBefore);
         }
+    }
+
+    @Test
+    @Advisory
+    public void testExecuteDoesNotChangeStructure() {
+        Assume.assumeFalse(isDynamic());
+        // Some statistics add nodes or edges on purpose (e.g. link prediction), reviewers should know
+        List<String> changes = new ArrayList<>();
+        for (Map.Entry<String, GraphModel> scenario : TestGraphs.scenarios().entrySet()) {
+            GraphModel graphModel = scenario.getValue();
+            int nodes = graphModel.getGraph().getNodeCount();
+            int edges = graphModel.getGraph().getEdgeCount();
+            try {
+                builder.getStatistics().execute(graphModel);
+            } catch (Throwable t) {
+                // testExecute reports that
+                continue;
+            }
+            int nodesAfter = graphModel.getGraph().getNodeCount();
+            int edgesAfter = graphModel.getGraph().getEdgeCount();
+            if (nodes != nodesAfter || edges != edgesAfter) {
+                changes.add("'" + scenario.getKey() + "' graph went from " + nodes + " nodes and " + edges +
+                    " edges to " + nodesAfter + " and " + edgesAfter);
+            }
+        }
+        Assert.assertTrue("Statistics adds or removes nodes or edges, it is expected to only write columns: " +
+            String.join("; ", changes), changes.isEmpty());
     }
 
     @Test
@@ -224,8 +253,6 @@ public class StatisticsContractTest {
         Assume.assumeFalse(isDynamic());
         GraphModel graphModel = TestGraphs.randomGraph();
         Graph mainGraph = graphModel.getGraph();
-        int nodes = mainGraph.getNodeCount();
-        int edges = mainGraph.getEdgeCount();
 
         // Keep half of the nodes in a filtered view, as filters do
         GraphView view = graphModel.createView();
@@ -246,7 +273,7 @@ public class StatisticsContractTest {
         Statistics statistics = builder.getStatistics();
         statistics.execute(graphModel);
 
-        assertGraphUntouched("filtered", graphModel, nodes, edges);
+        TestGraphs.assertGraphUnlocked("Statistics", "filtered", graphModel);
         Assert.assertNotNull("Report can't be null on a filtered graph", statistics.getReport());
     }
 
@@ -275,6 +302,7 @@ public class StatisticsContractTest {
     }
 
     @Test
+    @Advisory
     public void testExecuteWithExistingColumnsOfAnotherType() {
         assumeNoKnownCoreIssue("testExecuteWithExistingColumnsOfAnotherType");
         Assume.assumeFalse(isDynamic());
@@ -328,8 +356,6 @@ public class StatisticsContractTest {
         // Cancelling before execute() isn't tested, the user interface only offers to cancel a running statistics
         for (long delayMs : new long[] {0, 1, 5, 25}) {
             GraphModel graphModel = TestGraphs.largeRandomGraph();
-            int nodes = graphModel.getGraph().getNodeCount();
-            int edges = graphModel.getGraph().getEdgeCount();
             Statistics statistics = builder.getStatistics();
             LongTask task = (LongTask) statistics;
 
@@ -361,7 +387,7 @@ public class StatisticsContractTest {
                 throw new AssertionError("Cancelled statistics must not throw (cancel after " + delayMs + "ms): " +
                     failure.get(), failure.get());
             }
-            assertGraphUntouched("cancelled", graphModel, nodes, edges);
+            TestGraphs.assertGraphUnlocked("Statistics", "cancelled", graphModel);
         }
     }
 
@@ -386,15 +412,13 @@ public class StatisticsContractTest {
         e2.addInterval(new Interval(2, 4));
         graphModel.getGraph().addAllNodes(List.of(n1, n2, n3));
         graphModel.getGraph().addAllEdges(List.of(e1, e2));
-        int nodes = graphModel.getGraph().getNodeCount();
-        int edges = graphModel.getGraph().getEdgeCount();
         statistics.setBounds(new Interval(0, 4));
         statistics.setWindow(1);
         statistics.setTick(1);
 
         Lookup.getDefault().lookup(StatisticsController.class).execute(statistics);
 
-        assertGraphUntouched("dynamic", graphModel, nodes, edges);
+        TestGraphs.assertGraphUnlocked("Statistics", "dynamic", graphModel);
         Assert.assertNotNull("Report can't be null after the dynamic statistics has been executed",
             statistics.getReport());
     }
@@ -406,19 +430,28 @@ public class StatisticsContractTest {
         Assume.assumeFalse(isDynamic());
         Statistics statistics = executeOn(TestGraphs.randomGraph());
 
+        StatisticsModelImpl restored = saveAndLoad(statistics);
+
+        String report = restored.getReport(statistics.getClass());
+        Assert.assertTrue("Report can't be read back from a saved project",
+            report != null && !report.trim().isEmpty());
+    }
+
+    @Test
+    @Advisory
+    public void testReportSerializationIsStable() throws Exception {
+        Assume.assumeFalse(isDynamic());
+        Statistics statistics = executeOn(TestGraphs.randomGraph());
+
         Workspace workspace = new WorkspaceImpl(null, 0);
         StatisticsModelImpl model = new StatisticsModelImpl(workspace);
         model.addReport(statistics);
-
         String xml = write(model);
         StatisticsModelImpl restored = new StatisticsModelImpl(workspace);
         read(restored, xml);
 
         Assert.assertEquals("Report is changed by saving and loading it, make sure it only uses plain HTML and " +
             "images written to temporary files", xml, write(restored));
-        String report = restored.getReport(statistics.getClass());
-        Assert.assertTrue("Report can't be read back from a saved project",
-            report != null && !report.trim().isEmpty());
     }
 
     // Utilities
@@ -441,6 +474,16 @@ public class StatisticsContractTest {
         return false;
     }
 
+    private static StatisticsModelImpl saveAndLoad(Statistics statistics) throws Exception {
+        Workspace workspace = new WorkspaceImpl(null, 0);
+        StatisticsModelImpl model = new StatisticsModelImpl(workspace);
+        model.addReport(statistics);
+
+        StatisticsModelImpl restored = new StatisticsModelImpl(workspace);
+        read(restored, write(model));
+        return restored;
+    }
+
     private boolean isDynamic() {
         return builder.getStatistics() instanceof DynamicStatistics;
     }
@@ -455,14 +498,6 @@ public class StatisticsContractTest {
         Statistics statistics = builder.getStatistics();
         statistics.execute(graphModel);
         return statistics;
-    }
-
-    private static void assertGraphUntouched(String scenario, GraphModel graphModel, int nodes, int edges) {
-        Assert.assertEquals("Statistics must not add or remove nodes ('" + scenario + "' graph)", nodes,
-            graphModel.getGraph().getNodeCount());
-        Assert.assertEquals("Statistics must not add or remove edges ('" + scenario + "' graph)", edges,
-            graphModel.getGraph().getEdgeCount());
-        TestGraphs.assertGraphUnlocked("Statistics", scenario, graphModel);
     }
 
     private static void assertNoInvalidNumbers(String scenario, GraphModel graphModel,

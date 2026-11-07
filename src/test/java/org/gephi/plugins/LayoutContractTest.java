@@ -1,10 +1,12 @@
 package org.gephi.plugins;
 
 import java.awt.HeadlessException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -32,6 +34,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -50,6 +53,9 @@ public class LayoutContractTest {
 
     private static final int ITERATIONS = 20;
     private static final long TIMEOUT_SECONDS = 60;
+
+    @Rule
+    public final AdvisoryRule advisory = new AdvisoryRule();
 
     private final LayoutBuilder layoutBuilder;
     private Layout layout;
@@ -231,6 +237,37 @@ public class LayoutContractTest {
     }
 
     @Test
+    @Advisory
+    public void testExecuteDoesNotChangeStructure() {
+        // Some layouts add nodes or edges on purpose (e.g. to draw axes), reviewers should know
+        List<String> changes = new ArrayList<>();
+        for (Map.Entry<String, GraphModel> scenario : scenarios().entrySet()) {
+            GraphModel model = scenario.getValue();
+            int nodes = model.getGraph().getNodeCount();
+            int edges = model.getGraph().getEdgeCount();
+            try {
+                Layout toRun = newLayout(model);
+                toRun.initAlgo();
+                for (int i = 0; i < ITERATIONS && toRun.canAlgo(); i++) {
+                    toRun.goAlgo();
+                }
+                toRun.endAlgo();
+            } catch (Throwable t) {
+                // testExecute reports that
+                continue;
+            }
+            int nodesAfter = model.getGraph().getNodeCount();
+            int edgesAfter = model.getGraph().getEdgeCount();
+            if (nodes != nodesAfter || edges != edgesAfter) {
+                changes.add("'" + scenario.getKey() + "' graph went from " + nodes + " nodes and " + edges +
+                    " edges to " + nodesAfter + " and " + edgesAfter);
+            }
+        }
+        Assert.assertTrue("Layout adds or removes nodes or edges, it is expected to only move nodes: " +
+            String.join("; ", changes), changes.isEmpty());
+    }
+
+    @Test
     public void testStopAtAnyIteration() {
         // The layout controller can stop a run at any time, endAlgo() is called whatever the last pass was
         for (int iterations : new int[] {0, 1, 2, 5}) {
@@ -283,7 +320,6 @@ public class LayoutContractTest {
 
         for (long delayMs : new long[] {-1, 0, 1, 5, 25}) {
             GraphModel model = TestGraphs.largeRandomGraph();
-            int nodes = model.getGraph().getNodeCount();
             Layout cancellable = newLayout(model);
             LongTask task = (LongTask) cancellable;
             // Same as the layout controller, which also stops looping when cancelled
@@ -333,7 +369,6 @@ public class LayoutContractTest {
                 throw new AssertionError("Cancelled layout must not throw (cancel after " + delayMs + "ms): " +
                     failure.get(), failure.get());
             }
-            Assert.assertEquals("Layout must not add or remove nodes", nodes, model.getGraph().getNodeCount());
             assertFinitePositions("cancelled", model);
             TestGraphs.assertGraphUnlocked("Layout", "cancelled", model);
         }
@@ -396,8 +431,6 @@ public class LayoutContractTest {
      * Runs the layout like the layout controller does, checking the graph is not left locked between the steps.
      */
     private void runAndAssert(String scenario, GraphModel model, Layout toRun, int iterations) {
-        int nodes = model.getGraph().getNodeCount();
-        int edges = model.getGraph().getEdgeCount();
         try {
             toRun.initAlgo();
             TestGraphs.assertGraphUnlocked("Layout.initAlgo()", scenario, model);
@@ -417,10 +450,6 @@ public class LayoutContractTest {
         }
         TestGraphs.assertGraphUnlocked("Layout.endAlgo()", scenario, model);
 
-        Assert.assertEquals("Layout must not add or remove nodes ('" + scenario + "' graph)", nodes,
-            model.getGraph().getNodeCount());
-        Assert.assertEquals("Layout must not add or remove edges ('" + scenario + "' graph)", edges,
-            model.getGraph().getEdgeCount());
         assertFinitePositions(scenario, model);
     }
 
