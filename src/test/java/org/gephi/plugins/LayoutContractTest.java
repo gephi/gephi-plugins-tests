@@ -48,7 +48,6 @@ public class LayoutContractTest {
     @After
     public void cleanUp() {
         graphModel = null;
-        layout.setGraphModel(null);
         layout = null;
     }
 
