@@ -337,6 +337,7 @@ public class LayoutContractTest {
                 task.cancel();
             };
 
+            AtomicReference<Throwable> cancelFailure = new AtomicReference<>();
             Thread canceller = null;
             if (delayMs < 0) {
                 // Cancelled before it even started
@@ -347,7 +348,11 @@ public class LayoutContractTest {
                         Thread.sleep(delayMs);
                     } catch (InterruptedException ignored) {
                     }
-                    cancel.run();
+                    try {
+                        cancel.run();
+                    } catch (Throwable t) {
+                        cancelFailure.set(t);
+                    }
                 });
             }
 
@@ -370,6 +375,12 @@ public class LayoutContractTest {
                 canceller.start();
             }
             runner.join(TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS));
+            if (canceller != null) {
+                canceller.join(TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS));
+                StatisticsContractTest.warnIfCancelThrew(
+                    "testCancelDuringExecution[" + layoutBuilder.getClass().getName() + "]", cancelFailure.get(),
+                    delayMs);
+            }
 
             Assert.assertFalse("Cancelled layout must return, it is still running (cancel after " + delayMs + "ms)",
                 runner.isAlive());

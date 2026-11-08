@@ -369,12 +369,17 @@ public class StatisticsContractTest {
             Statistics statistics = builder.getStatistics();
             LongTask task = (LongTask) statistics;
 
+            AtomicReference<Throwable> cancelFailure = new AtomicReference<>();
             Thread canceller = new Thread(() -> {
                 try {
                     Thread.sleep(delayMs);
                 } catch (InterruptedException ignored) {
                 }
-                task.cancel();
+                try {
+                    task.cancel();
+                } catch (Throwable t) {
+                    cancelFailure.set(t);
+                }
             });
 
             AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -390,6 +395,9 @@ public class StatisticsContractTest {
             runner.start();
             canceller.start();
             runner.join(TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS));
+            canceller.join(TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS));
+            warnIfCancelThrew("testCancelDuringExecution[" + builder.getClass().getName() + "]", cancelFailure.get(),
+                delayMs);
 
             Assert.assertFalse("Cancelled statistics must return, it is still running (cancel after " + delayMs +
                 "ms)", runner.isAlive());
@@ -495,6 +503,17 @@ public class StatisticsContractTest {
         StatisticsModelImpl restored = new StatisticsModelImpl(workspace);
         read(restored, write(model));
         return restored;
+    }
+
+    /**
+     * The user can cancel at any moment, also right as the run starts. Whether that lands before the statistics is set
+     * up is a race, so it is a warning, not a failure.
+     */
+    static void warnIfCancelThrew(String test, Throwable thrown, long delayMs) {
+        if (thrown != null) {
+            AdvisoryRule.warn(test, "cancel() threw " + thrown + " when called " + delayMs + "ms after the run " +
+                "started, make sure it can be called at any time");
+        }
     }
 
     private boolean isDynamic() {

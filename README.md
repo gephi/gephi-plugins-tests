@@ -51,7 +51,7 @@ Tests live in `src/test/java` and are packaged as a test-jar, so consuming plugi
 
 A test annotated with `@Advisory` (the test class needs the `AdvisoryRule`) doesn't fail when its check does, it reports a warning instead. Use it for things that don't break the plugin but that users or reviewers should know about, for instance a layout that adds nodes on purpose. The warning is printed, and appended to the file set in the `gephi.plugins.tests.warnings` system property, as one `<test name><TAB><message>` line each. gephi-plugins' CI harness sets it to turn them into GitHub annotations and a job summary.
 
-Currently advisory: nodes or edges being added, existing columns of another type, reports that change when saved and loaded, and a statistics without a user interface.
+Currently advisory: nodes or edges being added, existing columns of another type, reports that change when saved and loaded, and a statistics without a user interface, and `cancel()` throwing when it is called right as the run starts (reported by the cancellation tests, which can't assert it since the race decides whether it happens).
 
 Add new dependencies in the `pom.xml` to support testing new types of plugins.
 
