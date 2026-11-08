@@ -124,12 +124,17 @@ public class StatisticsContractTest {
     // UI
 
     @Test
-    public void testStatisticsUI() {
-        List<StatisticsUI> uis = uis();
-        Assert.assertFalse("Statistics needs to have a StatisticsUI, otherwise it can't be run from the user "
-            + "interface", uis.isEmpty());
+    @Advisory
+    public void testStatisticsHasUI() {
+        // Some statistics are only driven by others (e.g. the algorithms behind a macro or a filter), reviewers
+        // should know when one can't be run from the user interface
+        Assert.assertFalse("Statistics has no StatisticsUI, it can't be run from the user interface",
+            uis().isEmpty());
+    }
 
-        for (StatisticsUI ui : uis) {
+    @Test
+    public void testStatisticsUI() {
+        for (StatisticsUI ui : uis()) {
             Assert.assertTrue("Statistics UI display name can't be null or empty",
                 ui.getDisplayName() != null && !ui.getDisplayName().isEmpty());
             Assert.assertTrue("Statistics UI category can't be null or empty",

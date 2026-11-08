@@ -23,7 +23,8 @@ We cover a number of plugin types and expectations and plan to add more overtime
   * [x] Cancelling at any moment doesn't throw or leave the graph locked
 * [x] Statistics
   * [x] Builder returns a new instance of the declared class, and the controller can find it
-  * [x] Statistics has a UI with a name and category, whose settings panel and value can be read
+  * [x] Statistics has a UI (warning)
+  * [x] Statistics UI has a name and category, and its settings panel and value can be read
   * [x] Executes on edge cases (empty, single node, self-loops, undirected, mixed, multigraph, disconnected, filtered view)
   * [x] Doesn't leave the graph locked or write NaN/infinite values
   * [x] Doesn't add or remove nodes or edges (warning)
@@ -48,7 +49,7 @@ Tests live in `src/test/java` and are packaged as a test-jar, so consuming plugi
 
 A test annotated with `@Advisory` (the test class needs the `AdvisoryRule`) doesn't fail when its check does, it reports a warning instead. Use it for things that don't break the plugin but that users or reviewers should know about, for instance a layout that adds nodes on purpose. The warning is printed, and appended to the file set in the `gephi.plugins.tests.warnings` system property, as one `<test name><TAB><message>` line each. gephi-plugins' CI harness sets it to turn them into GitHub annotations and a job summary.
 
-Currently advisory: the graph structure being changed, existing columns of another type, and reports that change when saved and loaded.
+Currently advisory: the graph structure being changed, existing columns of another type, reports that change when saved and loaded, and a statistics without a user interface.
 
 Add new dependencies in the `pom.xml` to support testing new types of plugins.
 
