@@ -3,9 +3,11 @@ package org.gephi.plugins;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.gephi.graph.GraphGenerator;
 import org.gephi.graph.api.Graph;
+import org.gephi.graph.api.GraphLock;
 import org.gephi.graph.api.GraphModel;
 import org.gephi.graph.api.Node;
 import org.junit.Assert;
@@ -14,6 +16,8 @@ import org.junit.Assert;
  * Graphs known to trip up algorithms, shared by the contract tests.
  */
 final class TestGraphs {
+
+    private static final long LOCK_GRACE_SECONDS = 2;
 
     private TestGraphs() {
     }
@@ -97,13 +101,22 @@ final class TestGraphs {
      */
     static void assertGraphUnlocked(String culprit, String scenario, GraphModel graphModel) {
         Graph graph = graphModel.getGraph();
-        try {
-            graph.writeLock();
-            graph.writeUnlock();
-        } catch (IllegalMonitorStateException e) {
-            graph.readUnlockAll();
-            throw new AssertionError(culprit + " left a read lock on the graph, make sure every readLock() is " +
-                "released, including when it is cancelled or fails ('" + scenario + "' graph)", e);
+        GraphLock lock = graph.getLock();
+        // Taking the write lock would wait for a read lock leaked by a thread that is gone, so only look at the lock.
+        // A thread that is finishing may still hold it for a moment.
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(LOCK_GRACE_SECONDS);
+        while (lock.getReadLockCount() > 0 || lock.isWriteLocked()) {
+            if (System.nanoTime() > deadline) {
+                graph.readUnlockAll();
+                throw new AssertionError(culprit + " left a lock on the graph, make sure every readLock() is " +
+                    "released, including when it is cancelled or fails ('" + scenario + "' graph)");
+            }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
     }
 }

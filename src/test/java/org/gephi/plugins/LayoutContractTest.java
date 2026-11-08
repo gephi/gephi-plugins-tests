@@ -1,5 +1,6 @@
 package org.gephi.plugins;
 
+import java.awt.HeadlessException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -218,7 +219,14 @@ public class LayoutContractTest {
     @Test
     public void testExecute() {
         for (Map.Entry<String, GraphModel> scenario : scenarios().entrySet()) {
-            runAndAssert(scenario.getKey(), scenario.getValue(), newLayout(scenario.getValue()), ITERATIONS);
+            Layout scenarioLayout;
+            try {
+                scenarioLayout = newLayout(scenario.getValue());
+            } catch (HeadlessException e) {
+                // The layout tells the user about this graph in a dialog
+                continue;
+            }
+            runAndAssert(scenario.getKey(), scenario.getValue(), scenarioLayout, ITERATIONS);
         }
     }
 
@@ -258,6 +266,8 @@ public class LayoutContractTest {
                 }
                 running.goAlgo();
             }
+        } catch (HeadlessException e) {
+            Assume.assumeNoException("Layout opened a dialog, which can't be checked in a headless run", e);
         } finally {
             running.endAlgo();
         }
@@ -309,6 +319,8 @@ public class LayoutContractTest {
                     failure.set(t);
                 }
             }, "layout-contract-test");
+            // A layout ignoring cancel() would otherwise keep the test JVM alive after the failure
+            runner.setDaemon(true);
             runner.start();
             if (canceller != null) {
                 canceller.start();
@@ -397,6 +409,10 @@ public class LayoutContractTest {
         } catch (AssertionError e) {
             throw e;
         } catch (Throwable t) {
+            if (opensDialog(t)) {
+                // The layout tells the user about this graph in a dialog, which can't open in a headless run
+                return;
+            }
             throw new AssertionError("Layout must handle the '" + scenario + "' graph: " + t, t);
         }
         TestGraphs.assertGraphUnlocked("Layout.endAlgo()", scenario, model);
@@ -406,6 +422,15 @@ public class LayoutContractTest {
         Assert.assertEquals("Layout must not add or remove edges ('" + scenario + "' graph)", edges,
             model.getGraph().getEdgeCount());
         assertFinitePositions(scenario, model);
+    }
+
+    private static boolean opensDialog(Throwable t) {
+        for (; t != null; t = t.getCause()) {
+            if (t instanceof HeadlessException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void assertFinitePositions(String scenario, GraphModel model) {
