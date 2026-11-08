@@ -3,6 +3,8 @@ package org.gephi.plugins;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.gephi.graph.GraphGenerator;
 import org.gephi.graph.api.Graph;
@@ -14,6 +16,8 @@ import org.junit.Assert;
  * Graphs known to trip up algorithms, shared by the contract tests.
  */
 final class TestGraphs {
+
+    private static final long LOCK_TIMEOUT_SECONDS = 10;
 
     private TestGraphs() {
     }
@@ -97,13 +101,28 @@ final class TestGraphs {
      */
     static void assertGraphUnlocked(String culprit, String scenario, GraphModel graphModel) {
         Graph graph = graphModel.getGraph();
-        try {
+        // Taking the write lock waits for every read lock, including one leaked by a thread that is gone, so it
+        // can't be done on the test thread
+        CountDownLatch acquired = new CountDownLatch(1);
+        Thread probe = new Thread(() -> {
             graph.writeLock();
             graph.writeUnlock();
-        } catch (IllegalMonitorStateException e) {
+            acquired.countDown();
+        }, "graph-lock-probe");
+        probe.setDaemon(true);
+        probe.start();
+
+        boolean unlocked;
+        try {
+            unlocked = acquired.await(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            unlocked = false;
+        }
+        if (!unlocked) {
             graph.readUnlockAll();
             throw new AssertionError(culprit + " left a read lock on the graph, make sure every readLock() is " +
-                "released, including when it is cancelled or fails ('" + scenario + "' graph)", e);
+                "released, including when it is cancelled or fails ('" + scenario + "' graph)");
         }
     }
 }
