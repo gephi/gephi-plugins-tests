@@ -6,6 +6,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.gephi.graph.GraphGenerator;
+import org.gephi.graph.api.Edge;
 import org.gephi.graph.api.Graph;
 import org.gephi.graph.api.GraphLock;
 import org.gephi.graph.api.GraphModel;
@@ -92,6 +93,37 @@ final class TestGraphs {
         GraphModel model = GraphGenerator.build().getGraphModel();
         populate.accept(model);
         return model;
+    }
+
+    /**
+     * The nodes and edges a graph holds, to check afterwards that none was removed. Adding some is allowed here, the
+     * advisory tests report that.
+     */
+    static final class Snapshot {
+
+        private final Node[] nodes;
+        private final Edge[] edges;
+
+        Snapshot(GraphModel graphModel) {
+            Graph graph = graphModel.getGraph();
+            nodes = graph.getNodes().toArray();
+            edges = graph.getEdges().toArray();
+        }
+
+        /**
+         * @param culprit what is expected to leave the graph's elements alone, e.g. "Statistics"
+         */
+        void assertNoneRemoved(String culprit, String scenario, GraphModel graphModel) {
+            Graph graph = graphModel.getGraph();
+            for (Node node : nodes) {
+                Assert.assertTrue(culprit + " must not remove nodes, node " + node.getId() + " is gone ('" +
+                    scenario + "' graph)", graph.contains(node));
+            }
+            for (Edge edge : edges) {
+                Assert.assertTrue(culprit + " must not remove edges, edge " + edge.getId() + " is gone ('" +
+                    scenario + "' graph)", graph.contains(edge));
+            }
+        }
     }
 
     /**

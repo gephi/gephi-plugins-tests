@@ -200,6 +200,7 @@ public class StatisticsContractTest {
             String name = scenario.getKey();
             GraphModel graphModel = scenario.getValue();
             Map<String, Class<?>> columnsBefore = columns(graphModel);
+            TestGraphs.Snapshot snapshot = new TestGraphs.Snapshot(graphModel);
 
             Statistics statistics = builder.getStatistics();
             try {
@@ -212,6 +213,7 @@ public class StatisticsContractTest {
             }
 
             TestGraphs.assertGraphUnlocked("Statistics", name, graphModel);
+            snapshot.assertNoneRemoved("Statistics", name, graphModel);
             Assert.assertNotNull("Report can't be null on the '" + name + "' graph", statistics.getReport());
             assertNoInvalidNumbers(name, graphModel, columnsBefore);
         }
@@ -235,12 +237,12 @@ public class StatisticsContractTest {
             }
             int nodesAfter = graphModel.getGraph().getNodeCount();
             int edgesAfter = graphModel.getGraph().getEdgeCount();
-            if (nodes != nodesAfter || edges != edgesAfter) {
+            if (nodesAfter > nodes || edgesAfter > edges) {
                 changes.add("'" + scenario.getKey() + "' graph went from " + nodes + " nodes and " + edges +
                     " edges to " + nodesAfter + " and " + edgesAfter);
             }
         }
-        Assert.assertTrue("Statistics adds or removes nodes or edges, it is expected to only write columns: " +
+        Assert.assertTrue("Statistics adds nodes or edges, it is expected to only write columns: " +
             String.join("; ", changes), changes.isEmpty());
     }
 
@@ -258,6 +260,7 @@ public class StatisticsContractTest {
         Assume.assumeFalse(isDynamic());
         GraphModel graphModel = TestGraphs.randomGraph();
         Graph mainGraph = graphModel.getGraph();
+        TestGraphs.Snapshot snapshot = new TestGraphs.Snapshot(graphModel);
 
         // Keep half of the nodes in a filtered view, as filters do
         GraphView view = graphModel.createView();
@@ -279,6 +282,7 @@ public class StatisticsContractTest {
         statistics.execute(graphModel);
 
         TestGraphs.assertGraphUnlocked("Statistics", "filtered", graphModel);
+        snapshot.assertNoneRemoved("Statistics", "filtered", graphModel);
         Assert.assertNotNull("Report can't be null on a filtered graph", statistics.getReport());
     }
 
@@ -361,6 +365,7 @@ public class StatisticsContractTest {
         // Cancelling before execute() isn't tested, the user interface only offers to cancel a running statistics
         for (long delayMs : new long[] {0, 1, 5, 25}) {
             GraphModel graphModel = TestGraphs.largeRandomGraph();
+            TestGraphs.Snapshot snapshot = new TestGraphs.Snapshot(graphModel);
             Statistics statistics = builder.getStatistics();
             LongTask task = (LongTask) statistics;
 
@@ -393,6 +398,7 @@ public class StatisticsContractTest {
                     failure.get(), failure.get());
             }
             TestGraphs.assertGraphUnlocked("Statistics", "cancelled", graphModel);
+            snapshot.assertNoneRemoved("Statistics", "cancelled", graphModel);
         }
     }
 
@@ -417,6 +423,7 @@ public class StatisticsContractTest {
         e2.addInterval(new Interval(2, 4));
         graphModel.getGraph().addAllNodes(List.of(n1, n2, n3));
         graphModel.getGraph().addAllEdges(List.of(e1, e2));
+        TestGraphs.Snapshot snapshot = new TestGraphs.Snapshot(graphModel);
         statistics.setBounds(new Interval(0, 4));
         statistics.setWindow(1);
         statistics.setTick(1);
@@ -424,6 +431,7 @@ public class StatisticsContractTest {
         Lookup.getDefault().lookup(StatisticsController.class).execute(statistics);
 
         TestGraphs.assertGraphUnlocked("Statistics", "dynamic", graphModel);
+        snapshot.assertNoneRemoved("Statistics", "dynamic", graphModel);
         Assert.assertNotNull("Report can't be null after the dynamic statistics has been executed",
             statistics.getReport());
     }
