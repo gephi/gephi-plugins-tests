@@ -43,7 +43,11 @@ public final class AdvisoryRule implements TestRule {
         };
     }
 
-    private static void warn(String test, String message) {
+    /**
+     * Reports a warning from a test that is not {@link Advisory}, for a finding that can't be raised as an assertion,
+     * e.g. an exception thrown in another thread.
+     */
+    public static void warn(String test, String message) {
         String line = message == null ? "" : message.replaceAll("\\s+", " ").trim();
         if (line.length() > MAX_MESSAGE_LENGTH) {
             line = line.substring(0, MAX_MESSAGE_LENGTH - 3) + "...";
